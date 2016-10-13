@@ -29,24 +29,24 @@ fn main() {
 	let mut total_button_presses = 0;
 	let cell = RefCell::new(&mut total_button_presses);
 	'out: while let Some(events) = gui.frame() {
-		let parent_size: V = one();
+		let parent_rect = Rect::new(one(), one());
 		thread::sleep(Duration::from_millis(20));
 		for leftover_event in lay_y.events_for_children(events).into_iter().enumerate().flat_map(|(lay_x_id, events)| {
 			//let lay_x0 = &mut lay_x0;
-			let parent_size = lay_y.child_size(parent_size, lay_x_id);
+			let parent_rect = lay_y.child_rect(parent_rect, lay_x_id);
 			let r = [
 				//(&mut |events| {
 				(box |events| {
 					//let lay_x0 = &mut *lay_x0;
 					let r = lay_x0.events_for_children(events).into_iter().enumerate().flat_map(|(button_id, events)| {
-						let parent_size = lay_x0.child_size(parent_size, button_id);
+						let parent_rect = lay_x0.child_rect(parent_rect, button_id);
 						events.into_iter().filter(|ev| {
 							!match *ev {
 								GEvent(MouseInput(ElementState::Pressed, MouseButton::Left)) => {
 									println!("button0{} clicked!", button_id);
 									**cell.borrow_mut() += 1;
 									println!("total_button_presses {}", **cell.borrow_mut());
-									println!("pos size {}", parent_size);
+									println!("rect {:?}", parent_rect);
 									true
 								}
 								Focus(p) => {
@@ -63,14 +63,14 @@ fn main() {
 				//&mut |events| {
 				box |events| {
 					let r = lay_x1.events_for_children(events).into_iter().enumerate().flat_map(|(button_id, events)| {
-						let parent_size = lay_x1.child_size(parent_size, button_id);
+						let parent_rect = lay_x1.child_rect(parent_rect, button_id);
 						events.into_iter().filter(|ev| {
 							!match *ev {
 								GEvent(MouseInput(ElementState::Pressed, MouseButton::Left)) => {
 									println!("button1{} clicked!", button_id);
 									**cell.borrow_mut() += 1;
 									println!("total_button_presses {}", **cell.borrow_mut());
-									println!("pos size {}", parent_size);
+									println!("rect {:?}", parent_rect);
 									true
 								}
 								Focus(p) => {

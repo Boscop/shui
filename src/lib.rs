@@ -15,6 +15,12 @@ use asprim::AsPrim;
 extern crate num;
 use num::{Float, NumCast, PrimInt, ToPrimitive};
 
+mod layout;
+pub use layout::*;
+
+mod widget;
+pub use widget::*;
+
 macro_rules! logit {
 	($($args:tt)*) => {
 		/*if /*cfg!(debug_assertions)*/false {
@@ -44,7 +50,7 @@ pub struct Gui {
 }
 impl Gui {
 	pub fn new(/*parent: *mut c_void*/) -> Gui {
-		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
+		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
 		let (w, h) = display.get_framebuffer_dimensions();
 		Gui {
 			window_size: V::new(w.as_(), h.as_()),
@@ -83,142 +89,7 @@ impl Gui {
 	}
 }
 
-/*pub struct WeightLayout {
-	partition: Vec<f32>,
-}
-impl WeightLayout {
-	pub fn new(partition: Vec<f32>) -> WeightLayout {
-		WeightLayout {
-			partition: partition,
-		}
-	}
-	pub fn fract(&self) -> FractLayout {
-		let total: f32 = self.partition.iter().sum();
-		self.partition.iter().map(|x| x / total).fold((vec![], 0.), |(mut v, a), x| {let a = a+x; v.push(a); (v, a)}).0
-	}
-}*/
-
-pub type FractLayout = Vec<f32>;
-pub type WeightLayout = Vec<f32>;
-
-/*struct ChildData {
-	fract_weight: f32,
-	events: Vec<Event>,
-}*/
-
-#[derive(Debug, Copy, Clone)]
-pub enum Axis {
-	X,
-	Y,
-	//Z,
-}
-
-pub type ChildId = usize;
-
-#[derive(Debug)]
-pub struct Layout {
-	axis: Axis,
-	layout_weight: WeightLayout,
-	layout_fract: FractLayout,
-	//size: V,
-	//child_data: Vec<ChildData>
-	//mouse_x: f32,
-	//pub events_for_children: Vec<Vec<MyEvent>>,
-	//pub events_from_children: Vec<MyEvent>,
-	focused: Option<ChildId>,
-}
-impl Layout {
-	pub fn new(axis: Axis) -> Layout {
-		Layout {
-			axis: axis,
-			layout_weight: vec![],
-			layout_fract: vec![],
-			//size: one(),
-			//mouse_x: zero(),
-			//events_for_children: vec![],
-			//events_from_children: vec![],
-			focused: None,
-		}
-	}
-	pub fn add(&mut self, weight: f32) -> ChildId {
-		assert!(weight > 0.);
-		let id = self.layout_weight.len();
-		self.layout_weight.push(weight);
-		let total: f32 = self.layout_weight.iter().sum();
-		self.layout_fract = self.layout_weight.iter().map(|x| x / total).fold((vec![], 0.), |(mut v, a), x| {let a = a+x; v.push(a); (v, a)}).0;
-		//self.events_for_children.push(vec![]);
-		println!("{:?}", self);
-		id
-	}
-	pub fn events_for_children(&mut self, events: Vec<MyEvent>) -> Vec<Vec<MyEvent>> {
-		let mut events_for_children = vec![vec![]; self.child_count()];
-		for ev in events {
-			match ev {
-				MousePos(p) => {
-					let focused = self.child_at(p);
-					let self_focused = self.focused;
-					self.focused = Some(focused);
-					let p = self.pos_in_focused_child_area(p);
-					if let Some(self_focused) = self_focused {
-						if focused != self_focused {
-							events_for_children[self_focused].push(Focus(None));
-							events_for_children[focused].push(Focus(Some(p)));
-						}
-					}
-					events_for_children[focused].push(MousePos(p));
-				}
-				GEvent(KeyboardInput(_, _, _)) |
-				GEvent(MouseInput(_, _)) => if let Some(self_focused) = self.focused {
-					events_for_children[self_focused].push(ev);
-				},
-				Focus(None) => {
-					if let Some(self_focused) = self.focused {
-						events_for_children[self_focused].push(ev);
-					}
-					self.focused = None;
-				}
-				Focus(Some(p)) => {
-					//println!("{:?}", self.axis);
-					assert!(self.focused.is_none());
-					let focused = self.child_at(p);
-					self.focused = Some(focused);
-					let p = self.pos_in_focused_child_area(p);
-					events_for_children[focused].push(Focus(Some(p)));
-				}
-				_ => ()
-			}
-		}
-		events_for_children
-	}
-	fn child_at(&self, p: V) -> ChildId {
-		let pos = match self.axis {
-			Axis::X => p.x,
-			Axis::Y => p.y,
-		};
-		self.layout_fract.iter().position(|&e| pos < e).unwrap()
-	}
-	pub fn pos_in_focused_child_area(&self, p: V) -> V {
-		let (a, b) = self.child_boundaries(self.focused.unwrap());
-		match self.axis {
-			Axis::X => V::new(percentage(p.x, a, b), p.y),
-			Axis::Y => V::new(p.x, percentage(p.y, a, b)),
-		}
-	}
-	fn child_count(&self) -> usize {
-		self.layout_fract.len()
-	}
-	fn child_boundaries(&self, id: ChildId) -> (f32, f32) {
-		(if id == 0 {0.} else {self.layout_fract[id-1]}, self.layout_fract[id])
-	}
-	pub fn child_size(&self, size: V, id: ChildId) -> V {
-		let (a, b) = self.child_boundaries(id);
-		let d = b - a;
-		match self.axis {
-			Axis::X => V::new(d, size.y),
-			Axis::Y => V::new(size.x, d),
-		}
-	}
-}
+// utils
 
 pub fn percentage<T: Float + NumCast>(value: T, min: T, max: T) -> f32 {
 	let v: f32 = NumCast::from(value).unwrap();
