@@ -7,6 +7,7 @@ authors = ["Boscop <kingboscop@gmail.com>"]
 glium = "*"
 nalgebra = "*"
 asprim = "*"
+num = "*"
 
 [profile.dev]
 codegen-units = 4
