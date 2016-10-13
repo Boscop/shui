@@ -1,0 +1,17 @@
+[package]
+name = "shui"
+version = "0.1.0"
+authors = ["Boscop <kingboscop@gmail.com>"]
+
+[dependencies]
+glium = "*"
+nalgebra = "*"
+asprim = "*"
+
+[profile.dev]
+codegen-units = 4
+#opt-level = 0
+
+[profile.release]
+codegen-units = 4
+#opt-level = 3
