@@ -15,13 +15,7 @@ use asprim::AsPrim;
 extern crate num;
 use num::{Float, NumCast, PrimInt, ToPrimitive};
 
-mod layout;
-pub use layout::*;
-
-mod widget;
-pub use widget::*;
-
-macro_rules! logit {
+#[macro_export] macro_rules! logit {
 	($($args:tt)*) => {
 		/*if /*cfg!(debug_assertions)*/false {
 			trace!($($args)*)
@@ -31,7 +25,11 @@ macro_rules! logit {
 	}
 }
 
-pub type V = Vector2<f32>;
+mod layout;
+pub use layout::*;
+
+mod widget;
+pub use widget::*;
 
 #[derive(Debug, Clone)]
 pub enum MyEvent {
@@ -50,7 +48,7 @@ pub struct Gui {
 }
 impl Gui {
 	pub fn new(/*parent: *mut c_void*/) -> Gui {
-		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
+		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_multisampling(4).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
 		let (w, h) = display.get_framebuffer_dimensions();
 		Gui {
 			window_size: V::new(w.as_(), h.as_()),
@@ -59,13 +57,24 @@ impl Gui {
 			//events_from_children: vec![],
 		}
 	}
+	pub fn display(&mut self) -> &mut Display { &mut self.display }
+	pub fn mouse_tr(&self, r: &Rect) -> V { // could be outside of [0., 1.)^2
+		V::new(percentage(self.mouse_pos.x, r.pos.x, r.max_x()),
+		       percentage(self.mouse_pos.y, r.pos.y, r.max_y()))
+	}
+	pub fn set_cursor_state(&mut self, s: glium::glutin::CursorState) {
+		self.display.get_window().unwrap().set_cursor_state(s).ok().expect("could not set cursor state");
+	}
+	pub fn set_cursor_pos(&mut self, p: V) {
+		self.display.get_window().unwrap().set_cursor_position((p.x * self.window_size.x) as i32, (self.window_size.y - 1. - (p.y * self.window_size.y) + 0.5) as i32).expect("could not set cursor position");
+	}
 	pub fn frame(&mut self) -> Option<Vec<MyEvent>> {
 		let mut events = vec![];
 		for event in self.display.poll_events() {
-			logit!("event: {:?}", event);
+			// logit!("event: {:?}", event);
 			match event {
 				Closed => {
-					logit!("window closed");
+					// logit!("window closed");
 					return None;
 				}
 				Resized(_w, _h) => {
@@ -91,12 +100,36 @@ impl Gui {
 
 // utils
 
+pub type V = Vector2<f32>;
+trait Vector2Ext {
+	fn lperp(&self) -> V;
+	fn rperp(&self) -> V;
+	fn is_nan(&self) -> bool;
+	fn to_tuple(&self) -> (f32, f32);
+}
+impl Vector2Ext for V {
+	fn lperp(&self) -> V {
+		V::new(-self.y, self.x)
+	}
+	fn rperp(&self) -> V {
+		V::new(self.y, -self.x)
+	}
+	fn is_nan(&self) -> bool {
+		self.x.is_nan() || self.y.is_nan()
+	}
+	fn to_tuple(&self) -> (f32, f32) {
+		(self.x, self.y)
+	}
+}
+
 pub fn percentage<T: Float + NumCast>(value: T, min: T, max: T) -> f32 {
 	let v: f32 = NumCast::from(value).unwrap();
 	let mn: f32 = NumCast::from(min).unwrap();
 	let mx: f32 = NumCast::from(max).unwrap();
 	(v - mn) / (mx - mn)
 }
+
+pub fn clamp<T: PartialOrd>(x: T, lb: T, ub: T) -> T { if x < lb { lb } else if x > ub { ub } else { x } }
 
 /*
 let v = vec![1,2,3];

@@ -45,11 +45,15 @@ impl Layout {
 	pub fn add(&mut self, weight: f32) -> ChildId {
 		assert!(weight > 0.);
 		let id = self.layout_weight.len();
+		/*match self.axis {
+			Axis::X => self.layout_weight.push(weight),
+			Axis::Y => self.layout_weight.insert(0, weight),
+		}*/
 		self.layout_weight.push(weight);
 		let total: f32 = self.layout_weight.iter().sum();
 		self.layout_fract = self.layout_weight.iter().map(|x| x / total).fold((vec![], 0.), |(mut v, a), x| {let a = a+x; v.push(a); (v, a)}).0;
 		//self.events_for_children.push(vec![]);
-		println!("{:?}", self);
+		// println!("{:?}", self);
 		id
 	}
 	pub fn events_for_children(&mut self, events: Vec<MyEvent>) -> Vec<Vec<MyEvent>> {
@@ -60,6 +64,7 @@ impl Layout {
 					let focused = self.child_at(p);
 					let self_focused = self.focused;
 					self.focused = Some(focused);
+					// logit!("set focused {:?} {:?} {:?}", self.axis, p, self.focused);
 					let p = self.pos_in_focused_child_rect(p);
 					if let Some(self_focused) = self_focused {
 						if focused != self_focused {
@@ -74,13 +79,17 @@ impl Layout {
 					events_for_children[self_focused].push(ev);
 				},
 				Focus(None) => {
+					// logit!("{:?} {:?}", self.axis, ev);
 					if let Some(self_focused) = self.focused {
 						events_for_children[self_focused].push(ev);
 					}
 					self.focused = None;
+					// logit!("{:?} {:?}", self.axis, self.focused);
 				}
 				Focus(Some(p)) => {
-					assert!(self.focused.is_none());
+					// logit!("{:?} {:?} {:?} {:?}", self.axis, ev, p, self.focused);
+					// assert!(self.focused.is_none());
+					// logit!("---");
 					let focused = self.child_at(p);
 					self.focused = Some(focused);
 					let p = self.pos_in_focused_child_rect(p);
@@ -111,23 +120,28 @@ impl Layout {
 	fn child_boundaries(&self, id: ChildId) -> (f32, f32) {
 		(if id == 0 {0.} else {self.layout_fract[id-1]}, self.layout_fract[id])
 	}
-	pub fn child_rect(&self, rect: Rect, id: ChildId) -> Rect {
+	pub fn child_rect(&self, r: &Rect, id: ChildId) -> Rect {
 		let (a, b) = self.child_boundaries(id);
 		let d = b - a;
 		match self.axis {
-			Axis::X => Rect::new(V::new(a, rect.pos.y), V::new(d, rect.size.y)),
-			Axis::Y => Rect::new(V::new(rect.pos.x, a), V::new(rect.size.x, d)),
+			Axis::X => Rect::new(V::new(a, r.pos.y), V::new(d, r.size.y)),
+			Axis::Y => Rect::new(V::new(r.pos.x, a), V::new(r.size.x, d)),
 		}
 	}
 }
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
-	pos: V,
-	size: V,
+	pub pos: V,
+	pub size: V,
 }
 impl Rect {
 	pub fn new(pos: V, size: V) -> Rect {
 		Rect {pos: pos, size: size}
+	}
+	pub fn max_x(&self) -> f32 { self.pos.x + self.size.x }
+	pub fn max_y(&self) -> f32 { self.pos.y + self.size.y }
+	pub fn center(&self) -> V {
+		self.pos + self.size / 2.
 	}
 }

@@ -3,6 +3,8 @@ use super::*;
 use glium;
 use glium::backend::Facade;
 use glium::vertex::VertexBufferAny;
+use glium::Surface;
+use glium::backend::glutin_backend::GlutinFacade;
 
 /*pub trait Widget {
 	fn calc_vertex_buffer() -> VertexBufferAny;
@@ -14,33 +16,37 @@ use glium::vertex::VertexBufferAny;
 	}
 }*/
 
-struct RenderKnob {
+pub struct KnobRenderer {
 	program: glium::Program,
 }
-impl RenderKnob {
+impl KnobRenderer {
 	pub fn new<T: Facade>(display: &T) -> Self {
-		RenderKnob {
+		KnobRenderer {
 			program: glium::Program::from_source(display, r#"
 				#version 140
 
-				in vec2 position;
+				in vec2 pos;
 				in vec2 uv;
+				in float val;
 
 				out vec2 v_uv;
+				out float v_val;
 
 				void main() {
-					gl_Position = vec4(position, 0., 1.);
+					gl_Position = vec4(pos, 0., 1.);
 					v_uv = uv;
+					v_val = val;
 				}
 			"#, r#"
 				#version 430
 
-				in vec2 uv;
+				in vec2 v_uv;
+				in float v_val;
 
 				//uniform vec2 resolution;
 				//uniform float time;
 				//uniform vec2 mouse;
-				uniform float val;
+				//uniform float val;
 
 				out vec4 color;
 
@@ -92,7 +98,7 @@ impl RenderKnob {
 					// theta for the knob's value.
 					float tValue = mix(t1, t0, value);
 					
-					vec2 valueP = vec2(cos(tValue), sin(tValue)) * r;
+					vec2 valueP = vec2(cos(tValue), sin(tValue) * 1.2) * r;
 					float vd = length(p-valueP);
 				   
 					// Make some sort of blobby thing out of the value dot
@@ -102,6 +108,8 @@ impl RenderKnob {
 					// Start with black.
 					//vec3 c = black;
 					vec4 c = vec4(0.0);
+
+					float s = 0.003;
 					
 					// Calculate the color for the background layer.
 					vec4 bg = vec4(bgColor, 1.0-smoothstep(30.0 * s, 35.0 * s, d));
@@ -115,28 +123,82 @@ impl RenderKnob {
 				}
 
 				void main() {
-					// overlay knob
 					//vec2 uv = fragCoord.xy - .5 * iResolution.xy;
-					vec2 p = uv - 0.5;
-					color = blend(color, knob(p - vec2(0.5, 0.5), 0.25, val));
+					//vec2 p = v_uv - 0.5;
+					float val = v_val;
+					color = vec4(0.);
+					color = blend(color, knob(v_uv - vec2(0.5, 0.5 - 0.07), 0.4, val));
 				}
 			"#, None).unwrap(),
 		}
 	}
-	/*fn calc_vertex_buffer(queue: &[Knob]) -> VertexBufferAny {
-
+	/*fn calc_buffers<T: Facade>(&self, display: &T) -> (glium::VertexBuffer<RVertexTerrain>, glium::index::IndexBuffer<u32>) {
+	fn calc_vertex_buffer(queue: &[Knob]) -> VertexBufferAny {}
+	pub fn draw<T: Surface>(&self, target: &mut T, vertex_buffer: &VertexBufferAny) {
+	}*/
+	fn calc_vertex_buffer<T: Facade>(display: &T, queue: &[RenderKnob]) -> VertexBufferAny {
+		let vertices = queue.iter().flat_map(|e| {
+			let p = (e.rect.pos - V::new(0.5, 0.5)) * 2.;
+			let r = e.rect.size * 2.;
+			let val = e.val;
+			let (max_x, max_y) = (p.x + r.x, p.y + r.y);
+			let (bottom_left, bottom_right, top_right, top_left) = (
+				KnobVertex { // bottom left
+					pos: [p.x, p.y],
+					uv:  [0., 0.],
+					val: val,
+				},
+				KnobVertex { // bottom right
+					pos: [max_x, p.y],
+					uv:  [1., 0.],
+					val: val,
+				},
+				KnobVertex { // top right
+					pos: [max_x, max_y],
+					uv:  [1., 1.],
+					val: val,
+				},
+				KnobVertex { // top left
+					pos: [p.x, max_y],
+					uv:  [0., 1.],
+					val: val,
+				},
+			);
+			vec![bottom_left, bottom_right, top_right, bottom_left, top_right, top_left] // CCW
+		}).collect::<Vec<_>>();
+		glium::VertexBuffer::new(display, &vertices).unwrap().into_vertex_buffer_any()
 	}
-	pub fn render<T: Surface>(&self, target: &mut T, vertex_buffers: &[VertexBufferAny]) {
-		let uniforms = uniform! {};
-		params: glium::DrawParameters {
+	pub fn draw(&self, display: &mut GlutinFacade, queue: &[RenderKnob]) {
+		let uniforms = uniform! {
+			//val: queue.iter().map(|e| e.val).collect::<Vec<_>>(),
+		};
+		let params = glium::DrawParameters {
 			blend: glium::Blend::alpha_blending(),
-			depth: glium::Depth {
+			/*depth: glium::Depth {
 				test: glium::DepthTest::IfLess,
 				write: true,
 				.. Default::default()
-			},
+			},*/
 			..Default::default()
-		},
-			target.draw(vertex_buffer, glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList), &self.grid_program, &uniforms, params).unwrap();
-	}*/
+		};
+		let vertex_buffer = KnobRenderer::calc_vertex_buffer(display, queue);
+		let mut target = display.draw();
+		target.clear_color(0., 0., 1., 1.);
+		target.draw(&vertex_buffer, glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList), &self.program, &uniforms, &params).unwrap();
+		target.finish().unwrap();
+	}
 }
+
+pub struct RenderKnob {
+	pub rect: Rect,
+	pub val: f32,
+}
+
+#[derive(Copy, Clone)]
+struct KnobVertex {
+	pos: [f32; 2],
+	uv: [f32; 2],
+	val: f32,
+	//color: [f32; 4]
+}
+implement_vertex!(KnobVertex, pos, uv, val);
