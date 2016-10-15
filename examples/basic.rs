@@ -10,6 +10,7 @@ use shui::*;
 
 #[macro_use] extern crate glium;
 use glium::glutin::{ElementState, MouseButton, VirtualKeyCode};
+use glium::Surface;
 
 extern crate nalgebra as na;
 use na::{Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3, zero, one};
@@ -28,27 +29,31 @@ fn main() {
 	let _button11 = lay_x1.add(1.);
 	let mut total_button_presses = 0;
 	let cell = RefCell::new(&mut total_button_presses);
-	struct KnobState {
-		val: f32,
-		twist: Option<(Vector2<f32>, f32)>, // mouse pos when pressed, knob value when pressed
-	}
 	let mut knobs = [
 		vec![
-			KnobState { val: 0.0, twist: None, },
-			KnobState { val: 0.5, twist: None, },
-			KnobState { val: 1.0, twist: None, },
+			KnobGuiState { val: 0.0, twist: None, },
+			KnobGuiState { val: 0.5, twist: None, },
+			KnobGuiState { val: 1.0, twist: None, },
 		],
 		vec![
-			KnobState { val: 0.0, twist: None, },
-			KnobState { val: 0.5, twist: None, },
+			KnobGuiState { val: 0.0, twist: None, },
+			KnobGuiState { val: 0.5, twist: None, },
 		],
 	];
-	let knob_renderer = KnobRenderer::new(gui.display());
+	//let knob_renderer = KnobRenderer::new(gui.display());
+	let mut gui_renderer = GuiRenderer::new(gui.display());
+	/*let mut font = MyFont::new(&gui.display(),
+		//r"D:\projects\MadBoys9000\FlowStudio_data\fonts\Bank Gothic Light.ttf"
+		r"D:\projects\MadBoys9000\FlowStudio_data\fonts\BankGothic Bold.ttf"
+		//r"D:\projects\MadBoys9000\FlowStudio_data\fonts\Arial Unicode.ttf"
+	).unwrap();*/
 	'out: while let Some(events) = gui.frame() {
+        let mut target = gui.display().draw();
+        target.clear_color(0.0, 0.0, 0.0, 0.0);
 		let parent_rect = Rect::new(one(), one());
 		thread::sleep(Duration::from_millis(20));
-		let mut knob_queue = vec![];
-		for leftover_event in lay_y.events_for_children(events).into_iter().enumerate().flat_map(|(lay_x_id, events)| {
+		//let mut knob_queue = vec![];
+		let leftover_events = lay_y.events_for_children(events).into_iter().enumerate().flat_map(|(lay_x_id, events)| {
 			//let lay_x0 = &mut lay_x0;
 			let parent_rect = lay_y.child_rect(&parent_rect, lay_x_id);
 			/*let r = [
@@ -60,7 +65,8 @@ fn main() {
 					lay_xx.events_for_children(events).into_iter().enumerate().flat_map(|(knob_id, events)| {
 						let parent_rect = lay_xx.child_rect(&parent_rect, knob_id);
 						let knob = &mut knobs[lay_x_id][knob_id];
-						knob_queue.push(RenderKnob {rect: parent_rect, val: knob.val});
+						//knob_queue.push(RenderKnob {rect: parent_rect, val: knob.val});
+						gui_renderer.queue_knob(parent_rect, knob);
 						events.into_iter().filter(|ev| {
 							!match *ev {
 								GEvent(MouseInput(ElementState::Pressed, MouseButton::Left)) => {
@@ -141,13 +147,17 @@ fn main() {
 				}
 			][lay_x_id](events);
 			r*/
-		}).collect::<Vec<_>>() {
-			match leftover_event {
+		}).collect::<Vec<_>>();
+		//knob_renderer.draw(gui.display(), &mut target, &knob_queue);
+		gui_renderer.queue_string(gui.display(), r"The vertical metrics of a font at a particular scale. This is useful for calculating the amount of vertical space to give a line of text, and for computing the vertical offset between successive lines.", /*parent_rect.pos*/V::new(0.5, 0.5), 16., [1., 1., 1., 1.]);
+		gui_renderer.draw(gui.display(), &mut target);
+		target.finish().unwrap();
+		for ev in leftover_events {
+			match ev {
 				GEvent(KeyboardInput(ElementState::Released, _, Some(VirtualKeyCode::Escape))) => break 'out,
 				_ => ()
 			}
-			println!("leftover_event: {:?}", leftover_event);
+			//println!("leftover_event: {:?}", ev);
 		}
-		knob_renderer.draw(gui.display(), &knob_queue);
 	}
 }

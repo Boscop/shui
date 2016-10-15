@@ -8,6 +8,10 @@ glium = "*"
 nalgebra = "*"
 asprim = "*"
 num = "*"
+rusttype = "*"
+unicode-normalization = "*"
+#euclid = "*"
+#lazy_static = "*"
 
 [profile.dev]
 codegen-units = 4

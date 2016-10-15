@@ -1,10 +1,11 @@
 #![allow(unused_imports)]
 
 #[macro_use] extern crate glium;
-use glium::{DisplayBuild, Surface, Display};
+use glium::{DisplayBuild, Surface};
+use glium::backend::glutin_backend::GlutinFacade;
 //use glium::glutin::*;
-use glium::backend::Facade;
-use glium::glutin::{WindowBuilder, Event, ElementState, MouseButton};
+//use glium::backend::Facade;
+use glium::glutin::{WindowBuilder, /*Window,*/ Event, ElementState, MouseButton};
 
 extern crate nalgebra as na;
 use na::{Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3, zero, one};
@@ -14,6 +15,10 @@ use asprim::AsPrim;
 
 extern crate num;
 use num::{Float, NumCast, PrimInt, ToPrimitive};
+
+extern crate rusttype;
+extern crate unicode_normalization;
+//extern crate euclid;
 
 #[macro_export] macro_rules! logit {
 	($($args:tt)*) => {
@@ -28,8 +33,14 @@ use num::{Float, NumCast, PrimInt, ToPrimitive};
 mod layout;
 pub use layout::*;
 
-mod widget;
-pub use widget::*;
+mod render;
+pub use render::*;
+
+mod font;
+pub use font::*;
+
+//mod widget;
+//pub use widget::*;
 
 #[derive(Debug, Clone)]
 pub enum MyEvent {
@@ -40,13 +51,13 @@ pub enum MyEvent {
 pub use self::MyEvent::*;
 pub use glium::glutin::Event::*;
 
-pub struct Gui {
-	display: Display,
+pub struct Gui/*<'a>*/ {
+	display: /*&'a mut*/ GlutinFacade,
 	window_size: V,
 	mouse_pos: V,
 	//pub events_from_children: Vec<MyEvent>,
 }
-impl Gui {
+impl/*<'a>*/ Gui/*<'a>*/ {
 	pub fn new(/*parent: *mut c_void*/) -> Gui {
 		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_multisampling(4).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
 		let (w, h) = display.get_framebuffer_dimensions();
@@ -57,7 +68,7 @@ impl Gui {
 			//events_from_children: vec![],
 		}
 	}
-	pub fn display(&mut self) -> &mut Display { &mut self.display }
+	pub fn display(&mut self) -> &mut GlutinFacade { &mut self.display }
 	pub fn mouse_tr(&self, r: &Rect) -> V { // could be outside of [0., 1.)^2
 		V::new(percentage(self.mouse_pos.x, r.pos.x, r.max_x()),
 		       percentage(self.mouse_pos.y, r.pos.y, r.max_y()))
@@ -100,8 +111,17 @@ impl Gui {
 
 // utils
 
+pub trait VecExt {
+	fn move_contents(&mut self) -> Self;
+}
+impl<T> VecExt for Vec<T> {
+	fn move_contents(&mut self) -> Self {
+		::std::mem::replace(self, Vec::new())
+	}
+}
+
 pub type V = Vector2<f32>;
-trait Vector2Ext {
+/*trait Vector2Ext {
 	fn lperp(&self) -> V;
 	fn rperp(&self) -> V;
 	fn is_nan(&self) -> bool;
@@ -120,7 +140,7 @@ impl Vector2Ext for V {
 	fn to_tuple(&self) -> (f32, f32) {
 		(self.x, self.y)
 	}
-}
+}*/
 
 pub fn percentage<T: Float + NumCast>(value: T, min: T, max: T) -> f32 {
 	let v: f32 = NumCast::from(value).unwrap();
