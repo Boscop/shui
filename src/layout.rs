@@ -144,4 +144,10 @@ impl Rect {
 	pub fn center(&self) -> V {
 		self.pos + self.size / 2.
 	}
+	pub fn rel(&self, p: V) -> V {
+		self.pos + self.size * p
+	}
+	pub fn pad(&self, s: f32) -> Rect {
+		Rect {pos: self.pos + self.size * s, size: self.size * (1. - 2. * s)}
+	}
 }

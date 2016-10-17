@@ -16,6 +16,8 @@ use rusttype::{FontCollection, Font, Scale, point, vector, PositionedGlyph};
 use rusttype::gpu_cache::{Cache};
 use rusttype::Rect;
 
+use num::Float;
+
 pub type MyColor = [f32; 4];
 
 pub struct MyFont<'a> {
@@ -60,9 +62,11 @@ impl<'a> MyFont<'a> {
 				",
 				fragment: "
 					#version 140
+
 					uniform sampler2D tex;
 					in vec2 v_tex_coords;
 					in vec4 v_color;
+					
 					out vec4 f_color;
 
 					void main() {
@@ -173,17 +177,17 @@ impl<'a> MyFont<'a> {
 				..Default::default()
 		}).unwrap();
 	}*/
-	pub fn string_vertices(&mut self, display: &GlutinFacade, text: &str, pos: V, size: f32, color: MyColor) -> Vec<GlyphVertex> {
+	pub fn string_vertices(&mut self, display: &GlutinFacade, text: &str, pos: V, size: f32, color: MyColor, centered: Centered) -> Vec<GlyphVertex> {
 		let (width, height) = display.get_framebuffer_dimensions();
 		let (screen_width, screen_height) = (width as f32, height as f32);
 		if height != self.last_screen_height {
 			self.last_screen_height = height;
 			self.cache.clear();
 		}
-		let size = size * screen_height / 800.;
+		let size = size * screen_height / 400.;
 		//let screen_width = target.get_dimensions().0;
 		let text_width = (screen_width * (1. - pos.x)) as u32;
-		let glyphs = layout_paragraph(&self.font, Scale::uniform(size * self.dpi_factor as f32), text_width, text);
+		let (glyphs, center_shift_x, center_shift_y) = layout_paragraph(&self.font, Scale::uniform(size * self.dpi_factor as f32), text_width, text);
 		for glyph in &glyphs {
 			self.cache.queue_glyph(0, glyph.clone());
 		}
@@ -206,7 +210,9 @@ impl<'a> MyFont<'a> {
 		let pos = V::new(pos.x, pos.y - 1.) * 2.;
 
 		//let origin = point(/*0.9*/0., 0.);
-		let origin = point(pos.x, pos.y);
+		let mut origin = point(pos.x, pos.y);
+		if centered.horz { origin.x += 2. * center_shift_x / screen_width; }
+		if centered.vert { origin.y += 2. * center_shift_y / screen_height; }
 		glyphs.iter().flat_map(|g| {
 			if let Ok(Some((uv_rect, screen_rect))) = self.cache.rect_for(0, g) {
 				let gl_rect = Rect {
@@ -268,6 +274,17 @@ impl<'a> MyFont<'a> {
 	}
 }
 
+pub struct Centered {
+	horz: bool,
+	vert: bool,
+}
+impl Centered {
+	pub fn none() -> Centered { Centered { horz: false, vert: false } }
+	pub fn horz() -> Centered { Centered { horz: true, vert: false } }
+	pub fn vert() -> Centered { Centered { horz: false, vert: true } }
+	pub fn both() -> Centered { Centered { horz: true, vert: true } }
+}
+
 /*trait RenderableQueue {
 	type Renderable;
 	fn render<T: Surface>(&self, display: &GlutinFacade, target: &mut T, r: &[Self::Renderable]);
@@ -293,23 +310,25 @@ pub struct GlyphVertex {
 }
 implement_vertex!(GlyphVertex, position, tex_coords, color);
 
-fn layout_paragraph<'a>(font: &'a Font,
-						scale: Scale,
-						width: u32,
-						text: &str) -> Vec<PositionedGlyph<'a>> {
+fn layout_paragraph<'a>(font: &'a Font, scale: Scale, _width: u32, text: &str) -> (Vec<PositionedGlyph<'a>>, f32, f32) {
 	use unicode_normalization::UnicodeNormalization;
 	let mut result = Vec::new();
 	let v_metrics = font.v_metrics(scale);
-	let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
+	//let advance_height = v_metrics.ascent - v_metrics.descent + v_metrics.line_gap;
+	let advance_height = (v_metrics.ascent - v_metrics.descent + v_metrics.line_gap) / 2.;
 	let mut caret = point(0., /*v_metrics.ascent*/0.);
 	let mut last_glyph_id = None;
+	let mut max_width = 0.;
+	let mut max_height = advance_height;
+	//println!("! {:?} {}", v_metrics, advance_height);
 	for c in text.nfc() {
 		if c.is_control() {
 			match c {
-				'\r' => {
+				'\r' => {},
+				'\n' => {
 					caret = point(0., caret.y + advance_height);
+					max_height += advance_height;
 				}
-				'\n' => {},
 				_ => {}
 			}
 			continue;
@@ -323,16 +342,19 @@ fn layout_paragraph<'a>(font: &'a Font,
 			caret.x += font.pair_kerning(scale, id, base_glyph.id());
 		}
 		last_glyph_id = Some(base_glyph.id());
-		let mut glyph = base_glyph.scaled(scale).positioned(caret);
-		if let Some(bb) = glyph.pixel_bounding_box() {
+		let /*mut*/ glyph = base_glyph.scaled(scale).positioned(caret);
+		/*if let Some(bb) = glyph.pixel_bounding_box() {
 			if bb.max.x > width as i32 {
 				caret = point(0., caret.y + advance_height);
 				glyph = glyph.into_unpositioned().positioned(caret);
 				last_glyph_id = None;
 			}
-		}
+		}*/
 		caret.x += glyph.unpositioned().h_metrics().advance_width;
 		result.push(glyph);
+		max_width = max_width.max(caret.x);
 	}
-	result
+	(result, -max_width / 2., max_height / 2. - advance_height)
 }
+
+//fn string_pxl_width<'a>(font: &'a Font, scale: Scale, text: &str) -> f32 {}

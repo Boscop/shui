@@ -8,7 +8,7 @@ glium = "*"
 nalgebra = "*"
 asprim = "*"
 num = "*"
-rusttype = "*"
+rusttype = "*" #{ path = 'D:\projects\forks\rusttype' }
 unicode-normalization = "*"
 #euclid = "*"
 #lazy_static = "*"

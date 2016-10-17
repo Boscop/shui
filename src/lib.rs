@@ -39,8 +39,8 @@ pub use render::*;
 mod font;
 pub use font::*;
 
-//mod widget;
-//pub use widget::*;
+mod widget;
+pub use widget::*;
 
 #[derive(Debug, Clone)]
 pub enum MyEvent {
@@ -96,13 +96,11 @@ impl/*<'a>*/ Gui/*<'a>*/ {
 					self.mouse_pos = V::new(px.as_(), self.window_size.y - 1. - py as f32) / self.window_size;
 					events.push(MousePos(self.mouse_pos));
 				}
-				MouseInput(_x, _y) => events.push(GEvent(event)),
-				/*MouseWheel(MouseScrollDelta::LineDelta(px, py), _touchphase) => {
-				}*/
-				KeyboardInput(_state, _scan_code, _maybe_key) => events.push(GEvent(event)),
+				MouseInput(_, _) | MouseWheel(_, _) |
+				KeyboardInput(_, _, _) => events.push(GEvent(event)),
 				Focused(true) => events.push(Focus(Some(self.mouse_pos))),
 				Focused(false) => events.push(Focus(None)),
-				_ => ()
+				_ => logit!("unhandled event: {:?}", event)
 			}
 		}
 		Some(events)
