@@ -1,14 +1,15 @@
 #![allow(unused_imports)]
+#![feature(box_syntax)]
 
 #[macro_use] extern crate glium;
-use glium::{DisplayBuild, Surface};
+use glium::{/*DisplayBuild,*/ Surface};
 use glium::backend::glutin_backend::GlutinFacade;
 //use glium::glutin::*;
 //use glium::backend::Facade;
-use glium::glutin::{WindowBuilder, /*Window,*/ Event, ElementState, MouseButton};
+use glium::glutin::{/*WindowBuilder,*/ /*Window,*/ Event, ElementState, MouseButton};
 
 extern crate nalgebra as na;
-use na::{Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3, zero, one};
+pub use na::{Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3, zero, one};
 
 extern crate asprim;
 use asprim::AsPrim;
@@ -51,24 +52,26 @@ pub enum MyEvent {
 pub use self::MyEvent::*;
 pub use glium::glutin::Event::*;
 
-pub struct Gui/*<'a>*/ {
-	display: /*&'a mut*/ GlutinFacade,
+pub struct Ui<'a> {
+	pub display: &'a mut GlutinFacade,
 	window_size: V,
 	mouse_pos: V,
 	//pub events_from_children: Vec<MyEvent>,
+	pub renderer: UiRenderer<'a>,
 }
-impl/*<'a>*/ Gui/*<'a>*/ {
-	pub fn new(/*parent: *mut c_void*/) -> Gui {
-		let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_multisampling(4).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
+impl<'a> Ui<'a> {
+	pub fn new(/*parent: *mut c_void*/ display: &'a mut GlutinFacade) -> Ui<'a> {
+		//let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_multisampling(4).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
 		let (w, h) = display.get_framebuffer_dimensions();
-		Gui {
+		Ui {
 			window_size: V::new(w.as_(), h.as_()),
+			renderer: UiRenderer::new(&display),
 			display: display,
 			mouse_pos: zero(),
 			//events_from_children: vec![],
 		}
 	}
-	pub fn display(&mut self) -> &mut GlutinFacade { &mut self.display }
+	//pub fn display(&mut self) -> &mut GlutinFacade { &mut self.display }
 	pub fn mouse_tr(&self, r: &Rect) -> V { // could be outside of [0., 1.)^2
 		V::new(percentage(self.mouse_pos.x, r.pos.x, r.max_x()),
 		       percentage(self.mouse_pos.y, r.pos.y, r.max_y()))
@@ -93,14 +96,16 @@ impl/*<'a>*/ Gui/*<'a>*/ {
 					self.window_size = V::new(w.as_(), h.as_());
 				}
 				MouseMoved(px, py) => {
+					//println!("MouseMoved {:?}", event);
 					self.mouse_pos = V::new(px.as_(), self.window_size.y - 1. - py as f32) / self.window_size;
 					events.push(MousePos(self.mouse_pos));
 				}
-				MouseInput(_, _) | MouseWheel(_, _) |
-				KeyboardInput(_, _, _) => events.push(GEvent(event)),
-				Focused(true) => events.push(Focus(Some(self.mouse_pos))),
+				/*Focused(true) => events.push(Focus(Some(self.mouse_pos))),
 				Focused(false) => events.push(Focus(None)),
-				_ => logit!("unhandled event: {:?}", event)
+				MouseInput(_, _) | MouseWheel(_, _) | ReceivedCharacter(_) |
+				KeyboardInput(_, _, _)*/
+				_ => events.push(GEvent(event)),
+				//_ => logit!("unhandled event: {:?}", event)
 			}
 		}
 		Some(events)

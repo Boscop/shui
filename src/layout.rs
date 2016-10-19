@@ -1,7 +1,7 @@
 use super::*;
 
-pub type FractLayout = Vec<f32>;
-pub type WeightLayout = Vec<f32>;
+// pub type FractLayout = Vec<f32>;
+// pub type WeightLayout = Vec<f32>;
 
 /*struct ChildData {
 	fract_weight: f32,
@@ -20,8 +20,8 @@ pub type ChildId = usize;
 #[derive(Debug)]
 pub struct Layout {
 	axis: Axis,
-	layout_weight: WeightLayout,
-	layout_fract: FractLayout,
+	layout_weight: Vec<f32>, //WeightLayout,
+	layout_fract: Vec<f32>, //FractLayout,
 	//size: V,
 	//child_data: Vec<ChildData>
 	//mouse_x: f32,
@@ -30,7 +30,7 @@ pub struct Layout {
 	focused: Option<ChildId>,
 }
 impl Layout {
-	pub fn new(axis: Axis) -> Layout {
+	/*pub fn new(axis: Axis) -> Layout {
 		Layout {
 			axis: axis,
 			layout_weight: vec![],
@@ -55,6 +55,16 @@ impl Layout {
 		//self.events_for_children.push(vec![]);
 		// println!("{:?}", self);
 		id
+	}*/
+	pub fn new(axis: Axis, layout_weight: Vec<f32>) -> Layout {
+		let total: f32 = layout_weight.iter().sum();
+		let layout_fract = layout_weight.iter().map(|x| x / total).fold((vec![], 0.), |(mut v, a), x| {let a = a+x; v.push(a); (v, a)}).0;
+		Layout {
+			axis: axis,
+			layout_weight: layout_weight,
+			layout_fract: layout_fract,
+			focused: None,
+		}
 	}
 	pub fn events_for_children(&mut self, events: Vec<MyEvent>) -> Vec<Vec<MyEvent>> {
 		let mut events_for_children = vec![vec![]; self.child_count()];
@@ -124,11 +134,189 @@ impl Layout {
 		let (a, b) = self.child_boundaries(id);
 		let d = b - a;
 		match self.axis {
-			Axis::X => Rect::new(V::new(a, r.pos.y), V::new(d, r.size.y)),
-			Axis::Y => Rect::new(V::new(r.pos.x, a), V::new(r.size.x, d)),
+			//Axis::X => Rect::new(V::new(a, r.pos.y), V::new(d, r.size.y)),
+			Axis::X => Rect::new(V::new(r.pos.x + r.size.x * a, r.pos.y), V::new(r.size.x * d, r.size.y)),
+			//Axis::Y => Rect::new(V::new(r.pos.x, a), V::new(r.size.x, d)),
+			Axis::Y => Rect::new(V::new(r.pos.x, r.pos.y + r.size.y * a), V::new(r.size.x, r.size.y * d)),
 		}
 	}
 }
+
+pub type EventHandler0D = FnMut(&mut Ui, Rect, Vec<MyEvent>) -> Vec<MyEvent>;
+pub type EventHandler1D = FnMut(&mut Ui, Rect, Vec<MyEvent>, /* row or col */ ChildId) -> Vec<MyEvent>;
+pub type EventHandler2D = FnMut(&mut Ui, Rect, Vec<MyEvent>, /* row */ ChildId, /* col */ ChildId) -> Vec<MyEvent>;
+
+pub enum Lay<'a> {
+	X(Vec<(f32, Lay<'a>)>),
+	Y(Vec<(f32, Lay<'a>)>),
+	Single(&'a mut EventHandler0D),
+	XMulti(Vec<f32>, &'a mut EventHandler1D),
+	XMultiEq(usize,  &'a mut EventHandler1D), // equally spaced
+	YMulti(Vec<f32>, &'a mut EventHandler1D),
+	YMultiEq(usize,  &'a mut EventHandler1D), // equally spaced
+	XYMultiEq(/* rows: */ usize, /* cols: */ usize, &'a mut EventHandler2D), // equally spaced
+	Empty,
+}
+impl<'a> Lay<'a> {
+	//fn finish(&'a mut self) -> Box<FnMut(&mut Ui, Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent> + 'a> {
+	fn finish<'b>(&'b mut self) -> Box<FnMut(&mut Ui, Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent> + 'b> {
+		use self::Lay::*;
+		match self {
+			&mut X(ref mut v) => {
+				let (weights, children): (Vec<f32>, Vec<&'b mut Lay<'a>>) = v.iter_mut().map(|&mut (w, ref mut c)| (w, c)).unzip();
+				//: Vec<Box<FnMut(&mut Ui, Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent> + 'b>>
+				let mut child_handlers = children.into_iter().map(|c| c.finish()).collect::<Vec<_>>();
+				let mut parent = Layout::new(Axis::X, weights);
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, events), handler)| {
+						handler(ui, parent.child_rect(&rect, child_id), events, child_id)
+					}).collect()
+				}
+			}
+			&mut Y(ref mut v) => {
+				let (weights, children): (Vec<f32>, Vec<&'b mut Lay<'a>>) = v.iter_mut().rev().map(|&mut (w, ref mut c)| (w, c)).unzip();
+				let mut child_handlers = children.into_iter().map(|c| c.finish()).collect::<Vec<_>>();
+				let mut parent = Layout::new(Axis::Y, weights);
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, events), handler)| {
+						handler(ui, parent.child_rect(&rect, child_id), events, child_id)
+					}).collect()
+				}
+			}
+			&mut Single(ref mut handler) => box move |ui, rect, events, _| {
+				handler(ui, rect.pad(PADDING), events)
+			},
+			&mut XMulti(ref weights, ref mut handler) => {
+				let mut parent = Layout::new(Axis::X, weights.clone());
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					}).collect()
+				}
+			}
+			&mut XMultiEq(n, ref mut handler) => {
+				let mut parent = Layout::new(Axis::X, vec![1.; n]);
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					}).collect()
+				}
+			}
+			&mut YMulti(ref weights, ref mut handler) => {
+				let mut parent = Layout::new(Axis::Y, weights.clone());
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					}).collect()
+				}
+			}
+			&mut YMultiEq(n, ref mut handler) => {
+				let mut parent = Layout::new(Axis::Y, vec![1.; n]);
+				box move |ui, rect, events, _| {
+					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					}).collect()
+				}
+			}
+			&mut XYMultiEq(rows, cols, ref mut handler) => {
+				let mut parent_y = Layout::new(Axis::Y, vec![1.; rows]);
+				let mut parents_x = (0..rows).map(|_| Layout::new(Axis::X, vec![1.; cols])).collect::<Vec<_>>();
+				box move |ui, rect, events, _| {
+					parent_y.events_for_children(events).into_iter().enumerate().flat_map(|(row, events)| {
+						let row_rect = parent_y.child_rect(&rect, row);
+						let parent = &mut parents_x[row];
+						parent.events_for_children(events).into_iter().enumerate().flat_map(|(col, events)| {
+							handler(ui, parent.child_rect(&row_rect, col).pad(PADDING), events, row, col)
+						}).collect::<Vec<_>>()
+					}).collect()
+				}
+			}
+			&mut Empty => box move |_, _, events, _| events,
+		}
+	}
+	/*pub fn event_handler(&'a mut self) -> Box<FnMut(&mut Ui, Vec<MyEvent>) -> Vec<MyEvent> + 'a> {
+		let mut handler = self.finish();
+		box move |ui, events| {
+ 			handler(ui, Rect::new(one(), one()), events, 0)
+ 		}
+ 	}*/
+ 	pub fn build(&'a mut self) -> Box<FnMut(&mut Ui) -> Option<Vec<MyEvent>> + 'a> {
+		let mut handler = self.finish();
+		box move |ui| {
+ 			ui.frame().map(|events| handler(ui, Rect::new(zero(), one()), events, 0))
+ 		}
+ 	}
+	/*pub fn build<'b: 'a>(&'a mut self, ui: &'b mut Ui<'b>) -> Box<FnMut() -> Option<Vec<MyEvent>> + 'a> {
+		let mut handler = self.finish();
+		box move || {
+			ui.frame().map(|events| handler(ui, Rect::new(one(), one()), events, 0))
+ 		}
+ 	}*/
+}
+const PADDING: f32 = 0.; //0.02; // TODO: translate MousePos events into child rect when PADDING != 0.
+
+//let (weights, children): (Vec<f32>, Vec<&'a GuiLay<'a>>) = v.iter().map(|&(w, ref c)| (w, c)).unzip();
+/*pub enum Lay<'a, T> { // TODO: optional handler for leftover events
+	X(Vec<(f32, T)>),
+	Y(Vec<(f32, T)>),
+	Single(&'a mut FnMut(Rect, Vec<MyEvent>) -> Vec<MyEvent>),
+	XMulti(Vec<f32>, &'a mut FnMut(Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent>),
+	YMulti(Vec<f32>, &'a mut FnMut(Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent>),
+	XYMulti(Vec<f32>, &'a mut FnMut(Rect, Vec<MyEvent>, ChildId, ChildId) -> Vec<MyEvent>),
+	Empty,
+}
+
+struct LayDef<'a>(Lay<'a, LayDef<'a>>);
+impl<'a> LayDef<'a> {
+	pub fn finish(self) -> GuiLay<'a> {
+		use self::Lay::*;
+		match self.0 {
+			X(v) => GuiLay { focused: None, lay: X(v.into_iter().map(|(weight, lay)| (weight, lay.finish())).collect()) },
+			Y(v) => GuiLay { focused: None, lay: Y(v.into_iter().map(|(weight, lay)| (weight, lay.finish())).collect()) },
+			Single(f) => GuiLay { focused: None, lay: Single(f) },
+			XMulti(v, f) => GuiLay { focused: None, lay: XMulti(v, f) },
+			YMulti(v, f) => GuiLay { focused: None, lay: YMulti(v, f) },
+			XYMulti(v, f) => GuiLay { focused: None, lay: XYMulti(v, f) },
+			Empty => GuiLay { focused: None, lay: Empty },
+		}
+	}
+}
+
+struct GuiLay<'a> {
+	focused: Option<ChildId>,
+	lay: Lay<'a, GuiLay<'a>>,
+}
+impl<'a> GuiLay<'a> {
+	pub fn process_events(&'a mut self, rect: Rect, events: Vec<MyEvent>) -> Vec<MyEvent> {
+		use self::Lay::*;
+		fn child_handler<'a>(/*focused: Option<ChildId>,*/ /*parent: Layout,*/ lay: &GuiLay<'a>) -> Box<FnMut(Rect, Vec<MyEvent>, ChildId) -> Vec<MyEvent>> {
+			match lay.lay {
+				//X(ref v) => v.iter().map(|&(_, ref c)| c).map(|c| child_handler(&c)).collect(),
+				X(ref v) => {
+					let (weights, children): (Vec<f32>, Vec<&'a GuiLay<'a>>) = v.iter().map(|&(w, ref c)| (w, c)).unzip();
+					let mut parent = Layout::new(Axis::X, weights);
+					parent.focused = self.focused;
+					let mut handler = |rect: Rect, events: Vec<MyEvent>, child_id: ChildId| -> Vec<MyEvent> {
+						parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+							let rect = parent.child_rect(&rect, child_id);
+							child_handler()
+						}.collect()
+					}
+				}
+				_ => unimplemented!(),
+			}
+		}
+		match self.lay {
+			X(ref v) => {
+				let (weights, children): (Vec<f32>, Vec<&'a GuiLay<'a>>) = v.iter().map(|&(w, ref c)| (w, c)).unzip();
+				let mut parent = Layout::new(Axis::X, weights);
+				parent.focused = self.focused;
+				parent.events_for_children(events).into_iter().enumerate().zip(children.iter().map(|c| child_handler(parent, *c))).flat_map(|((child_id, events), handler)| handler(rect, events, child_id)).collect()
+			}
+			_ => unimplemented!(),
+		}
+	}
+}*/
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {

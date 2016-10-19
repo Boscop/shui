@@ -330,34 +330,34 @@ struct RectVertex {
 }
 implement_vertex!(RectVertex, pos, uv, color, filled, line_width);
 
-pub struct KnobGuiState {
+pub struct KnobUiState {
 	pub val: f32,
 	pub label: String,
 	pub twist: Option<(V, f32)>, // mouse pos when pressed, knob value when pressed
 	pub focused: bool,
 }
 
-/*pub struct MultiChoiceKnobGuiState {
+/*pub struct MultiChoiceKnobUiState {
 	pub val: f32,
 	pub labels: Vec<String>,
 	pub twist: Option<(V, f32)>, // mouse pos when pressed, knob value when pressed
 	pub focused: bool,
 }*/
 
-pub struct ButtonGuiState {
+pub struct ButtonUiState {
 	pub label: String,
 	pub pressed: bool,
 	pub focused: bool,
 }
 
-pub struct ToggleButtonGuiState {
+pub struct ToggleButtonUiState {
 	pub label: String,
 	//pub pressed: bool,
 	//pub focused: bool,
 	pub on: bool,
 }
 
-pub struct GuiRenderer<'a> {
+pub struct UiRenderer<'a> {
 	knob_renderer: KnobRenderer,
 	knob_queue: Vec<RenderKnob>,
 	rect_renderer: RectRenderer,
@@ -366,9 +366,9 @@ pub struct GuiRenderer<'a> {
 	//render_queue: RenderableQueue,
 	glyph_queue: Vec<GlyphVertex>,
 }
-impl<'a> GuiRenderer<'a> {
+impl<'a> UiRenderer<'a> {
 	pub fn new(display: &GlutinFacade) -> Self {
-		GuiRenderer {
+		UiRenderer {
 			knob_renderer: KnobRenderer::new(display),
 			rect_renderer: RectRenderer::new(display),
 			knob_queue: vec![],
@@ -381,8 +381,8 @@ impl<'a> GuiRenderer<'a> {
 			glyph_queue: vec![],
 		}
 	}
-	pub fn queue_knob(&mut self, rect: Rect, knob: &KnobGuiState) {
-		self.knob_queue.push(RenderKnob {rect: rect, val: knob.val, highlight: /*knob.focused*/false});
+	pub fn queue_knob(&mut self, rect: Rect, knob: &KnobUiState) {
+		self.knob_queue.push(RenderKnob {rect: rect, val: knob.val, highlight: knob.focused/*false*/});
 	}
 	pub fn queue_rect(&mut self, rect: RenderRect) {
 		self.rect_queue.push(rect);
