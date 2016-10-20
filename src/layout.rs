@@ -1,4 +1,5 @@
-use super::*;
+//use super::*;
+use prelude::*;
 
 // pub type FractLayout = Vec<f32>;
 // pub type WeightLayout = Vec<f32>;
@@ -84,10 +85,6 @@ impl Layout {
 					}
 					events_for_children[focused].push(MousePos(p));
 				}
-				GEvent(KeyboardInput(_, _, _)) |
-				GEvent(MouseInput(_, _)) => if let Some(self_focused) = self.focused {
-					events_for_children[self_focused].push(ev);
-				},
 				Focus(None) => {
 					// logit!("{:?} {:?}", self.axis, ev);
 					if let Some(self_focused) = self.focused {
@@ -105,7 +102,11 @@ impl Layout {
 					let p = self.pos_in_focused_child_rect(p);
 					events_for_children[focused].push(Focus(Some(p)));
 				}
-				_ => ()
+				/*GEvent(KeyboardInput(_, _, _)) |
+				GEvent(MouseInput(_, _))*/
+				_ => if let Some(self_focused) = self.focused {
+					events_for_children[self_focused].push(ev);
+				},
 			}
 		}
 		events_for_children

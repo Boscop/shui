@@ -1,10 +1,11 @@
-use super::*;
+//use super::*;
+use prelude::*;
 
 use glium;
 use glium::backend::Facade;
 use glium::vertex::VertexBufferAny;
-use glium::Surface;
-use glium::backend::glutin_backend::GlutinFacade;
+//use glium::Surface;
+//use glium::backend::glutin_backend::GlutinFacade;
 
 /*pub trait Widget {
 	fn calc_vertex_buffer() -> VertexBufferAny;
@@ -197,7 +198,7 @@ pub struct RectRenderer {
 }
 impl RectRenderer {
 	pub fn new<T: Facade>(display: &T) -> Self {
-		RectRenderer {
+		RectRenderer {/*
 			program: glium::Program::from_source(display, r#"
 				#version 140
 
@@ -238,6 +239,47 @@ impl RectRenderer {
 					  0., 1.);
 					f_color = v_color * fill;
 				}
+			"#, None).unwrap(),*/
+			program: glium::Program::from_source(display, r#"
+				#version 140
+
+				in vec2 pos;
+				in vec2 uv;
+				in float border_width;
+				in vec4 border_color;
+				in vec4 fill_color;
+
+				out vec2 v_uv;
+				out vec4 v_border_color;
+				out vec4 v_fill_color;
+				out float v_border_width;
+
+				void main() {
+					gl_Position = vec4(pos, 0., 1.);
+					v_uv = uv;
+					v_border_width = border_width;
+					v_border_color = border_color;
+					v_fill_color = fill_color;
+				}
+			"#,r#"
+				#version 140
+
+				in vec2 v_uv;
+				in float v_border_width;
+				in vec4 v_border_color;
+				in vec4 v_fill_color;
+
+				out vec4 f_color;
+
+				vec2 border_width = /*sqrt*/(vec2(/*0.5*/v_border_width)); //1. / resolution.xy;
+
+				void main() {
+					float border = clamp(
+					  (1. - smoothstep(0., border_width.x, sqrt(abs(mod(v_uv.x + 0.5, 1.) - 0.5)))) +
+					  (1. - smoothstep(0., border_width.y, sqrt(abs(mod(v_uv.y + 0.5, 1.) - 0.5)))),
+					  0., 1.);
+					f_color = mix(v_fill_color, v_border_color, border);
+				}
 			"#, None).unwrap(),
 		}
 	}
@@ -246,36 +288,37 @@ impl RectRenderer {
 			let p = (e.rect.pos - V::new(0.5, 0.5)) * 2.;
 			let r = e.rect.size * 2.;
 			let (max_x, max_y) = (p.x + r.x, p.y + r.y);
-			let filled = if e.filled { 1 } else { 0 };
-			let line_width = e.line_width;
+			let border_width = e.border_width;
+			let border_color = e.border_color;
+			let fill_color   = e.fill_color;
 			let (bottom_left, bottom_right, top_right, top_left) = (
 				RectVertex { // bottom left
 					pos: [p.x, p.y],
 					uv:  [0., 0.],
-					color: e.color,
-					filled: filled,
-					line_width: line_width,
+					border_width: border_width,
+					border_color: border_color,
+					fill_color: fill_color,
 				},
 				RectVertex { // bottom right
 					pos: [max_x, p.y],
 					uv:  [1., 0.],
-					color: e.color,
-					filled: filled,
-					line_width: line_width,
+					border_width: border_width,
+					border_color: border_color,
+					fill_color: fill_color,
 				},
 				RectVertex { // top right
 					pos: [max_x, max_y],
 					uv:  [1., 1.],
-					color: e.color,
-					filled: filled,
-					line_width: line_width,
+					border_width: border_width,
+					border_color: border_color,
+					fill_color: fill_color,
 				},
 				RectVertex { // top left
 					pos: [p.x, max_y],
 					uv:  [0., 1.],
-					color: e.color,
-					filled: filled,
-					line_width: line_width,
+					border_width: border_width,
+					border_color: border_color,
+					fill_color: fill_color,
 				},
 			);
 			vec![bottom_left, bottom_right, top_right, bottom_left, top_right, top_left] // CCW
@@ -315,12 +358,12 @@ implement_vertex!(KnobVertex, pos, uv, val, highlight);
 
 pub struct RenderRect {
 	pub rect: Rect,
-	pub color: MyColor,
-	pub filled: bool,
-	pub line_width: f32,
+	pub border_width: f32,
+	pub border_color: MyColor,
+	pub fill_color: MyColor,
 }
 
-#[derive(Copy, Clone)]
+/*#[derive(Copy, Clone)]
 struct RectVertex {
 	pos: [f32; 2],
 	uv: [f32; 2],
@@ -329,6 +372,16 @@ struct RectVertex {
 	line_width: f32,
 }
 implement_vertex!(RectVertex, pos, uv, color, filled, line_width);
+*/
+#[derive(Copy, Clone)]
+struct RectVertex {
+	pos: [f32; 2],
+	uv: [f32; 2],
+	border_width: f32,
+	border_color: [f32; 4],
+	fill_color: [f32; 4],
+}
+implement_vertex!(RectVertex, pos, uv, border_width, border_color, fill_color);
 
 pub struct KnobUiState {
 	pub val: f32,
@@ -337,12 +390,15 @@ pub struct KnobUiState {
 	pub focused: bool,
 }
 
-/*pub struct MultiChoiceKnobUiState {
-	pub val: f32,
-	pub labels: Vec<String>,
-	pub twist: Option<(V, f32)>, // mouse pos when pressed, knob value when pressed
-	pub focused: bool,
-}*/
+pub struct MultiChoiceKnobUiState {
+	pub knob: KnobUiState,
+	pub values: Vec<String>,
+}
+impl MultiChoiceKnobUiState {
+	pub fn value_idx(&self) -> usize {
+		(self.knob.val * 0.999 * self.values.len() as f32) as usize
+	}
+}
 
 pub struct ButtonUiState {
 	pub label: String,
