@@ -20,7 +20,7 @@ use glium::{DisplayBuild, Surface};
 use glium::glutin::{Event};
 
 extern crate nalgebra as na;
-//use na::{Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3, zero, one};
+use na::{/*Vector2, RotationTo, Norm, Dot, Rotation2, Vector1, Vector3,*/ zero, one};
 
 fn main() {
 	let display = WindowBuilder::new().with_title("title".to_string()).with_dimensions(800 as u32, 600 as u32).with_multisampling(4).with_depth_buffer(24)/*.with_parent(Some(WindowID::new(parent)))*/.build_glium().unwrap();
@@ -138,12 +138,28 @@ fn main() {
 	]);
 	let mut event_handler = layout.build();
 
+	let mut button_request_to_be_master = ButtonUiState::new("this is the\nmaster\ninstance".into());
+
+	let mut lay_y = Layout::new(Axis::Y, vec![1.]);
+
 	'out: while let Some(leftover_events) = {
 		let mut target = ui.display.draw();
-		target.clear_color(0.0, 0.0, 0.0, 0.0);
+		target.clear_color(0.0, 0.0, 1.0, 0.0);
 		//knob_renderer.draw(gui.display(), &mut target, &knob_queue);
 		//gui_renderer.queue_string(gui.display(), r"The vertical metrics of a font at a particular scale. This is useful for calculating the amount of vertical space to give a line of text, and for computing the vertical offset between successive lines.", /*parent_rect.pos*/V::new(0.5, 0.5), 16. * parent_rect.size.y, [1., 1., 1., 1.], Centered::both());
+
 		let leftover_events = event_handler(&mut ui);
+		/*let leftover_events = ui.frame().map(|events| {
+			lay_y.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
+				let rect = Rect::new(zero(), one());
+				let (leftover_events, clicked) = button_request_to_be_master.draw(&mut ui, rect, events);
+				if clicked {
+					println!("button clicked: request to be master");
+				}
+				leftover_events
+			}).collect::<Vec<_>>()
+		});*/
+
 		ui.renderer.draw(&mut ui.display, &mut target);
 		target.finish().unwrap();
 		thread::sleep(Duration::from_millis(20));

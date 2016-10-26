@@ -23,3 +23,8 @@ pub fn widget_toggle_button(gui_renderer: &mut UiRenderer, display: &mut GlutinF
 	gui_renderer.queue_rect(RenderRect {rect: rect, border_width: /*0.2*/0.3, border_color: COLOR_LIGHTGRAY, fill_color: if button.on { COLOR_WHITE } else { COLOR_TRANSPARENT }});
 	gui_renderer.queue_string(display, &button.label, rect.rel(V::new(0.5, 0.5)), 80. * rect.size.y, if button.on { COLOR_BLACK } else { COLOR_WHITE }, Centered::both());
 }
+
+pub fn widget_label(gui_renderer: &mut UiRenderer, display: &mut GlutinFacade, rect: Rect, label: &LabelUiState) {
+	gui_renderer.queue_rect(RenderRect {rect: rect, border_width: 0., border_color: COLOR_TRANSPARENT, fill_color: COLOR_WHITE});
+	gui_renderer.queue_string(display, &label.label, rect.rel(V::new(0.5, 0.5)), 80. * rect.size.y, COLOR_BLACK, Centered::both());
+}

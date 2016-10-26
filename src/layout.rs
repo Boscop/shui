@@ -67,7 +67,7 @@ impl Layout {
 			focused: None,
 		}
 	}
-	pub fn events_for_children(&mut self, events: Vec<MyEvent>) -> Vec<Vec<MyEvent>> {
+	pub fn events_for_children(&mut self, rect: Rect, events: Vec<MyEvent>) -> Vec<(Rect, Vec<MyEvent>)> {
 		let mut events_for_children = vec![vec![]; self.child_count()];
 		for ev in events {
 			match ev {
@@ -109,7 +109,7 @@ impl Layout {
 				},
 			}
 		}
-		events_for_children
+		events_for_children.into_iter().enumerate().map(|(i, e)| (self.child_rect(&rect, i), e)).collect()
 	}
 	fn child_at(&self, p: V) -> ChildId {
 		let pos = match self.axis {
@@ -169,8 +169,8 @@ impl<'a> Lay<'a> {
 				let mut child_handlers = children.into_iter().map(|c| c.finish()).collect::<Vec<_>>();
 				let mut parent = Layout::new(Axis::X, weights);
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, events), handler)| {
-						handler(ui, parent.child_rect(&rect, child_id), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, (rect, events)), handler)| {
+						handler(ui, /*parent.child_rect(&rect, child_id)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
@@ -179,8 +179,8 @@ impl<'a> Lay<'a> {
 				let mut child_handlers = children.into_iter().map(|c| c.finish()).collect::<Vec<_>>();
 				let mut parent = Layout::new(Axis::Y, weights);
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, events), handler)| {
-						handler(ui, parent.child_rect(&rect, child_id), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().zip(child_handlers.iter_mut()).flat_map(|((child_id, (rect, events)), handler)| {
+						handler(ui, /*parent.child_rect(&rect, child_id)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
@@ -190,32 +190,32 @@ impl<'a> Lay<'a> {
 			&mut XMulti(ref weights, ref mut handler) => {
 				let mut parent = Layout::new(Axis::X, weights.clone());
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
-						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().flat_map(|(child_id, (rect, events))| {
+						handler(ui, /*parent.child_rect(&rect, child_id).pad(PADDING)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
 			&mut XMultiEq(n, ref mut handler) => {
 				let mut parent = Layout::new(Axis::X, vec![1.; n]);
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
-						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().flat_map(|(child_id, (rect, events))| {
+						handler(ui, /*parent.child_rect(&rect, child_id).pad(PADDING)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
 			&mut YMulti(ref weights, ref mut handler) => {
 				let mut parent = Layout::new(Axis::Y, weights.clone());
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
-						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().flat_map(|(child_id, (rect, events))| {
+						handler(ui, /*parent.child_rect(&rect, child_id).pad(PADDING)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
 			&mut YMultiEq(n, ref mut handler) => {
 				let mut parent = Layout::new(Axis::Y, vec![1.; n]);
 				box move |ui, rect, events, _| {
-					parent.events_for_children(events).into_iter().enumerate().flat_map(|(child_id, events)| {
-						handler(ui, parent.child_rect(&rect, child_id).pad(PADDING), events, child_id)
+					parent.events_for_children(rect, events).into_iter().enumerate().flat_map(|(child_id, (rect, events))| {
+						handler(ui, /*parent.child_rect(&rect, child_id).pad(PADDING)*/ rect, events, child_id)
 					}).collect()
 				}
 			}
@@ -223,11 +223,11 @@ impl<'a> Lay<'a> {
 				let mut parent_y = Layout::new(Axis::Y, vec![1.; rows]);
 				let mut parents_x = (0..rows).map(|_| Layout::new(Axis::X, vec![1.; cols])).collect::<Vec<_>>();
 				box move |ui, rect, events, _| {
-					parent_y.events_for_children(events).into_iter().enumerate().flat_map(|(row, events)| {
-						let row_rect = parent_y.child_rect(&rect, row);
-						let parent = &mut parents_x[row];
-						parent.events_for_children(events).into_iter().enumerate().flat_map(|(col, events)| {
-							handler(ui, parent.child_rect(&row_rect, col).pad(PADDING), events, row, col)
+					parent_y.events_for_children(rect, events).into_iter().enumerate().flat_map(|(row, (rect, events))| {
+						// let row_rect = parent_y.child_rect(&rect, row);
+						// let parent = &mut parents_x[row];
+						/*parent*/parents_x[row].events_for_children(rect, events).into_iter().enumerate().flat_map(|(col, (rect, events))| {
+							handler(ui, /*parent.child_rect(&row_rect, col).pad(PADDING)*/ rect, events, row, col)
 						}).collect::<Vec<_>>()
 					}).collect()
 				}

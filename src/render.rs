@@ -405,12 +405,39 @@ pub struct ButtonUiState {
 	pub pressed: bool,
 	pub focused: bool,
 }
+impl ButtonUiState {
+	pub fn new(label: String) -> Self {
+		ButtonUiState {
+			label: label,
+			pressed: false,
+			focused: false,
+		}
+	}
+	pub fn draw(&mut self, ui: &mut Ui, rect: Rect, events: Vec<MyEvent>) -> (Vec<MyEvent>, bool) {
+		handle_button(ui, rect, events, self)
+	}
+}
 
 pub struct ToggleButtonUiState {
 	pub label: String,
 	//pub pressed: bool,
 	//pub focused: bool,
 	pub on: bool,
+}
+
+pub struct LabelUiState {
+	pub label: String,
+}
+impl LabelUiState {
+	pub fn new(label: String) -> Self {
+		LabelUiState {
+			label: label,
+		}
+	}
+	pub fn draw(&mut self, ui: &mut Ui, rect: Rect, events: Vec<MyEvent>) -> (Vec<MyEvent>, ()) {
+		widget_label(&mut ui.renderer, &mut ui.display, rect, self);
+		(events, ())
+	}
 }
 
 pub struct UiRenderer<'a> {
