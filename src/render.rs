@@ -475,11 +475,7 @@ impl<'a> UiRenderer<'a> {
 			rect_renderer: RectRenderer::new(display),
 			knob_queue: vec![],
 			rect_queue: vec![],
-			font: MyFont::new(display,
-				//r"D:\projects\MadBoys9000\FlowStudio_data\fonts\Bank Gothic Light.ttf"
-				r"D:\projects\MadBoys9000\FlowStudio_data\fonts\BankGothic Bold.ttf"
-				//r"D:\projects\MadBoys9000\FlowStudio_data\fonts\Arial Unicode.ttf"
-			).unwrap(),
+			font: MyFont::new(display, "font.ttf").unwrap(),
 			glyph_queue: vec![],
 		}
 	}
