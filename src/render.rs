@@ -70,60 +70,60 @@ impl KnobRenderer {
 
 				// Returns distance to the outline of the knob.
 				float knob_distance(vec2 p, float r) {
-					
+
 					float costheta = dot(normalize(p), vec2(0,1));
-					
+
 					float t = 5.0/4.0 * PI;
-					
+
 					if(costheta > cos(t))
 						return abs(length(p)-r);
-					
+
 					// Return minimum distance to endpoints.
 					vec2 p0 = vec2(cos(t0), sin(t0)) * r;
 					vec2 p1 = vec2(cos(t1), sin(t1)) * r;
-					
+
 					float d0 = length(p - p0);
 					float d1 = length(p - p1);
-					
+
 					return min(d0, d1);
-					
+
 				}
 
 				// SRC_ALPHA, ONE_MINUS_SRC_ALPHA
 				vec4 blend(vec4 fb, vec4 c) {
 					return vec4(mix(fb.rgb, c.rgb, c.a), max(c.a,fb.a));
 				}
-					
+
 				vec4 knob(vec2 p, float r, float value) {
 					value = clamp(value, 0.0, 1.0);
-					
+
 					// Color of the background layer.
 					vec3 bgColor = gray50;
-					
+
 					// theta for the knob's value.
 					float tValue = mix(t1, t0, value);
-					
+
 					vec2 valueP = vec2(cos(tValue), sin(tValue) /* * 1.2*/) * r;
 					float vd = length(p-valueP);
-				   
+
 					// Make some sort of blobby thing out of the value dot
 					// distance and the outline.
 					float d = sqrt(knob_distance(p, r) * vd);
-					
+
 					// Start with black.
 					//vec3 c = black;
 					vec4 c = vec4(0.0);
 
 					float s = 0.003;
-					
+
 					// Calculate the color for the background layer.
 					vec4 bg = vec4(bgColor, 1.0-smoothstep(30.0 * s, 35.0 * s, d));
 					c = blend(c, bg);
-					
+
 					// Calculate the color for the value dot layer.
 					vec4 vdc = vec4(dot_color, 1.0-smoothstep(19.0 * s, 20.0 * s, vd));
 					c = blend(c, vdc);
-					
+
 					return c;
 				}
 
@@ -178,7 +178,7 @@ impl KnobRenderer {
 		}).collect::<Vec<_>>();
 		glium::VertexBuffer::new(display, &vertices).unwrap().into_vertex_buffer_any()
 	}
-	pub fn draw<T: Surface>(&self, display: &mut GlutinFacade, target: &mut T, queue: &[RenderKnob]) {
+	pub fn draw<T: Surface>(&self, display: &GlutinFacade, target: &mut T, queue: &[RenderKnob]) {
 		let params = glium::DrawParameters {
 			blend: glium::Blend::alpha_blending(),
 			/*depth: glium::Depth {
@@ -186,6 +186,7 @@ impl KnobRenderer {
 				write: true,
 				.. Default::default()
 			},*/
+			//backface_culling: glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise,
 			..Default::default()
 		};
 		let vertex_buffer = KnobRenderer::calc_vertex_buffer(display, queue);
@@ -325,7 +326,7 @@ impl RectRenderer {
 		}).collect::<Vec<_>>();
 		glium::VertexBuffer::new(display, &vertices).unwrap().into_vertex_buffer_any()
 	}
-	pub fn draw<T: Surface>(&self, display: &mut GlutinFacade, target: &mut T, queue: &[RenderRect]) {
+	pub fn draw<T: Surface>(&self, display: &GlutinFacade, target: &mut T, queue: &[RenderRect]) {
 		let params = glium::DrawParameters {
 			blend: glium::Blend::alpha_blending(),
 			/*depth: glium::Depth {
@@ -389,6 +390,19 @@ pub struct KnobUiState {
 	pub twist: Option<(V, f32)>, // mouse pos when pressed, knob value when pressed
 	pub focused: bool,
 }
+impl KnobUiState {
+	pub fn new(label: String) -> KnobUiState {
+		KnobUiState {
+			val: 0.,
+			label: label,
+			twist: None,
+			focused: false,
+		}
+	}
+	pub fn draw(&mut self, ui: &mut Ui, rect: Rect, events: Vec<MyEvent>) -> (Vec<MyEvent>, Option<f32>) {
+		handle_knob(ui, rect, events, self)
+	}
+}
 
 pub struct MultiChoiceKnobUiState {
 	pub knob: KnobUiState,
@@ -418,25 +432,30 @@ impl ButtonUiState {
 	}
 }
 
+#[derive(new)]
 pub struct ToggleButtonUiState {
 	pub label: String,
 	//pub pressed: bool,
 	//pub focused: bool,
 	pub on: bool,
 }
+impl ToggleButtonUiState {
+	pub fn draw(&mut self, ui: &mut Ui, rect: Rect, events: Vec<MyEvent>) -> (Vec<MyEvent>, Option<bool>) {
+		handle_toggle_button(ui, rect, events, self)
+	}
+	pub fn cond_label(&mut self, labels: &[&'static str; 2]) {
+ 		self.label = labels[self.on as usize].to_string();
+	}
+}
 
+#[derive(new)]
 pub struct LabelUiState {
 	pub label: String,
 }
 impl LabelUiState {
-	pub fn new(label: String) -> Self {
-		LabelUiState {
-			label: label,
-		}
-	}
-	pub fn draw(&mut self, ui: &mut Ui, rect: Rect, events: Vec<MyEvent>) -> (Vec<MyEvent>, ()) {
+	pub fn draw(&mut self, ui: &mut Ui, rect: Rect/*, events: Vec<MyEvent>*/) /*-> (Vec<MyEvent>, ())*/ {
 		widget_label(&mut ui.renderer, &mut ui.display, rect, self);
-		(events, ())
+		// (events, ())
 	}
 }
 
@@ -473,7 +492,7 @@ impl<'a> UiRenderer<'a> {
 	pub fn queue_string(&mut self, display: &GlutinFacade, text: &str, pos: V, size: f32, color: MyColor, centered: Centered) {
 		self.glyph_queue.extend(self.font.string_vertices(display, text, pos, size, color, centered));
 	}
-	pub fn draw<T: Surface>(&mut self, display: &mut GlutinFacade, target: &mut T) {
+	pub fn draw<T: Surface>(&mut self, display: &GlutinFacade, target: &mut T) {
 		self.rect_renderer.draw(display, target, &self.rect_queue.move_contents());
 		self.knob_renderer.draw(display, target, &self.knob_queue.move_contents());
 		self.font.draw(display, target, &self.glyph_queue.move_contents());

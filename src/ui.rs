@@ -29,7 +29,7 @@ impl<'a> Ui<'a> {
 			//events_from_children: vec![],
 		}
 	}
-	//pub fn display(&mut self) -> &mut GlutinFacade { &mut self.display }
+	//pub fn display(&mut self) -> &GlutinFacade { &mut self.display }
 	pub fn mouse_tr(&self, r: &Rect) -> V { // could be outside of [0., 1.)^2
 		V::new(percentage(self.mouse_pos.x, r.pos.x, r.max_x()),
 		       percentage(self.mouse_pos.y, r.pos.y, r.max_y()))
@@ -40,7 +40,7 @@ impl<'a> Ui<'a> {
 	pub fn set_cursor_pos(&mut self, p: V) {
 		self.display.get_window().unwrap().set_cursor_position((p.x * self.window_size.x) as i32, (self.window_size.y - 1. - (p.y * self.window_size.y) + 0.5) as i32).expect("could not set cursor position");
 	}
-	pub fn frame(&mut self) -> Option<Vec<MyEvent>> {
+	pub fn frame(&mut self, rect: Rect) -> Option<Vec<MyEvent>> {
 		let mut events = vec![];
 		for event in self.display.poll_events() {
 			// logit!("event: {:?}", event);
@@ -56,6 +56,7 @@ impl<'a> Ui<'a> {
 				MouseMoved(px, py) => {
 					//println!("MouseMoved {:?}", event);
 					let mouse_pos = V::new(px.as_(), self.window_size.y - 1. - py as f32) / self.window_size;
+					let mouse_pos = rect.inv_rel(mouse_pos);
 					if mouse_pos != self.mouse_pos {
 						self.mouse_pos = mouse_pos;
 						events.push(MousePos(self.mouse_pos));

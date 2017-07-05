@@ -136,15 +136,11 @@ fn main() {
 		])),
 		(0.5, Lay::XYMultiEq(ROWS, COLS, &mut multi_handler)),
 	]);
-	let mut event_handler = layout.build();
-
-	let mut button_request_to_be_master = ButtonUiState::new("this is the\nmaster\ninstance".into());
-
-	let mut lay_y = Layout::new(Axis::Y, vec![1.]);
+	let mut event_handler = layout.build_full_window();
 
 	'out: while let Some(leftover_events) = {
 		let mut target = ui.display.draw();
-		target.clear_color(0.0, 0.0, 1.0, 0.0);
+		target.clear_color(0.0, 0.0, 0.0, 0.0);
 		//knob_renderer.draw(gui.display(), &mut target, &knob_queue);
 		//gui_renderer.queue_string(gui.display(), r"The vertical metrics of a font at a particular scale. This is useful for calculating the amount of vertical space to give a line of text, and for computing the vertical offset between successive lines.", /*parent_rect.pos*/V::new(0.5, 0.5), 16. * parent_rect.size.y, [1., 1., 1., 1.], Centered::both());
 

@@ -1,4 +1,4 @@
-#![feature(box_syntax)]
+#![feature(box_syntax, proc_macro)]
 #![allow(dead_code)] //unused_imports
 
 #[macro_use] extern crate glium;
@@ -20,6 +20,7 @@ extern crate num;
 extern crate rusttype;
 extern crate unicode_normalization;
 //extern crate euclid;
+#[macro_use] extern crate derive_new;
 
 #[macro_export] macro_rules! logit {
 	($($args:tt)*) => {

@@ -12,6 +12,7 @@ rusttype = "*" #{ path = 'D:\projects\forks\rusttype' }
 unicode-normalization = "*"
 #euclid = "*"
 #lazy_static = "*"
+derive-new = "*"
 
 [profile.dev]
 codegen-units = 4

@@ -12,26 +12,7 @@ impl<T> VecExt for Vec<T> {
 }
 
 pub type V = Vector2<f32>;
-/*trait Vector2Ext {
-	fn lperp(&self) -> V;
-	fn rperp(&self) -> V;
-	fn is_nan(&self) -> bool;
-	fn to_tuple(&self) -> (f32, f32);
-}
-impl Vector2Ext for V {
-	fn lperp(&self) -> V {
-		V::new(-self.y, self.x)
-	}
-	fn rperp(&self) -> V {
-		V::new(self.y, -self.x)
-	}
-	fn is_nan(&self) -> bool {
-		self.x.is_nan() || self.y.is_nan()
-	}
-	fn to_tuple(&self) -> (f32, f32) {
-		(self.x, self.y)
-	}
-}*/
+pub fn v(x: f32, y: f32) -> V { V::new(x, y) }
 
 pub fn percentage<T: Float + NumCast>(value: T, min: T, max: T) -> f32 {
 	let v: f32 = NumCast::from(value).unwrap();
