@@ -12,3 +12,7 @@ TODO:
 - skeuomorphic 3d knobs
 
 Contributions welcome!
+
+### Font
+Examples require a font named `font.ttf` to be present in the current working directory.  
+Lato is a free font provided under the [OFL license](http://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL_web). 
