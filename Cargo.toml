@@ -4,15 +4,15 @@ version = "0.1.0"
 authors = ["Boscop <kingboscop@gmail.com>"]
 
 [dependencies]
-glium = "*"
-nalgebra = "*"
-asprim = "*"
-num = "*"
-rusttype = "*" #{ path = 'D:\projects\forks\rusttype' }
-unicode-normalization = "*"
+glium = "0.15"
+nalgebra = "0.10"
+asprim = "0.1"
+num = "0.1"
+rusttype = "0.2" #{ path = 'D:\projects\forks\rusttype' }
+unicode-normalization = "0.1"
 #euclid = "*"
 #lazy_static = "*"
-derive-new = "*"
+derive-new = "0.3"
 
 [profile.dev]
 codegen-units = 4
